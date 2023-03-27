@@ -11,6 +11,8 @@ namespace OpenAI
 {
     public class SpeechToText : MonoBehaviour
     {
+        public GameObject thinkDots;
+        private Animator thinkAnimator;
         private static SpeechToText speechy;
 
         private Animator animator;
@@ -31,6 +33,8 @@ namespace OpenAI
         private string message;
         private bool ifAvatarTalking;
         private bool ifAvatarListening;
+        private bool ifAvatarThinking;
+        private bool isInit = true;
 
         // 用来识别整句输出，并且输出完整文本
         private void RecognizedHandler(object sender, SpeechRecognitionEventArgs e)
@@ -39,9 +43,22 @@ namespace OpenAI
             {
                 message = e.Result.Text;
                 isMessageOver = true;
+                
             }
         }
-
+        
+        private void StartToThink(object sender, SpeechRecognitionEventArgs e)
+        {
+            lock (threadLocker)
+            {
+               if (isInit) {
+                    isInit = false;
+                    Debug.Log("Start to think");
+                    ifAvatarThinking = true;
+                }
+                
+            }
+        }
 
         // 当文字转语音开始时，开始记录口型与表情
         private void StartViseme(object sender, SpeechSynthesisVisemeEventArgs e)
@@ -82,6 +99,8 @@ namespace OpenAI
                 speechStarted = true;
                 ifAvatarTalking = true;
                 ifAvatarListening = false;
+                ifAvatarThinking = false;
+                isInit = true;
             }
         }
 
@@ -94,6 +113,7 @@ namespace OpenAI
                 speechStarted = true;
                 ifAvatarTalking = false;
                 ifAvatarListening = true;
+                ifAvatarThinking = false;
             }
         }
 
@@ -113,10 +133,12 @@ namespace OpenAI
             recognizer = new SpeechRecognizer(config);
             // 订阅事件：当用户语音完整输出后，调用Handler
             recognizer.Recognized += RecognizedHandler;
+            recognizer.Recognizing += StartToThink;
             // // 当文字转语音开始调用时，也开始调用该方法，输出口型数据
             synthesizer.VisemeReceived += StartViseme;
             string[] aaa = Microphone.devices;
             animator = gameObject.GetComponent<Animator>();
+            thinkAnimator = thinkDots.GetComponent<Animator>();
 
         }
 
@@ -139,15 +161,21 @@ namespace OpenAI
 
             if (ifAvatarTalking)
             {
-                animator.SetTrigger("talk");
                 ifAvatarTalking = false;
+                animator.SetTrigger("talk");
+                thinkAnimator.SetBool("isThink", false);
 
             }
             if (ifAvatarListening)
             {
-                animator.SetTrigger("listen");
                 ifAvatarListening = false;
-
+                animator.SetTrigger("listen");
+                thinkAnimator.SetBool("isThink", false);
+            }
+            if (ifAvatarThinking)
+            {
+                ifAvatarThinking = false;
+                thinkAnimator.SetBool("isThink", true);
             }
         }
 
